@@ -1,5 +1,6 @@
 ﻿using NLog;
 using Sandbox.Game;
+using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ using Torch.API.Session;
 using Torch.Commands;
 using Torch.Session;
 using VRage.Game;
+using VRage.Game.ModAPI;
 using VRage.ModAPI;
 
 namespace TorchPlugin
@@ -47,14 +49,10 @@ namespace TorchPlugin
 
         public override void Update()
         {
-
-            Log.Info("Update");
-
             base.Update();
 
             try
             {
-
                 /* stopWatch not running? Nothing to do */
                 if (!stopWatch.IsRunning)
                     return;
@@ -64,17 +62,48 @@ namespace TorchPlugin
                     return;
 
                 var elapsed = stopWatch.Elapsed;
-                if (elapsed.TotalMinutes < 1)
+                if (elapsed.TotalSeconds < 10)
                     return;
 
-                var entities = new HashSet<IMyEntity>();
-                MyAPIGateway.Entities.GetEntities(entities);
-                foreach (var entity in entities)
-                {
-                    Log.Info("Found entity: " + entity.GetFriendlyName());
-                }
-                
-                MyVisualScriptLogicProvider.AddToPlayersInventory();
+                //var entities = new HashSet<IMyEntity>();
+                //MyAPIGateway.Entities.GetEntities(entities);
+                //foreach (var entity in entities)
+                //{
+                //    Log.Info("Found entity: " + entity.GetFriendlyName());
+                //}
+
+                ////MyVisualScriptLogicProvider.AddToPlayersInventory();
+
+                //Log.Info("do stuff here");
+                //foreach (var mod in MySession.Static.Mods)
+                //{
+                //    Log.Info("Mod loaded: " + mod.FriendlyName);
+                //}
+
+                MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+                    //DO STUFF
+
+                    //MyAPIGateway.Players.GetPlayers(players);
+
+                    IMyWeatherEffects effects = Torch.CurrentSession.KeenSession.WeatherEffects;
+                    var players = MySession.Static.Players.GetOnlinePlayers();
+                    foreach (var player in players)
+                    {
+                        //Log.Info(player.DisplayName);
+                        //MySession.Static.Players.TryGetSteamId()
+                        //Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther("Bubba", "AAAAAA", Color.Red, player.Client.SteamUserId);
+                        //Plugin.Instance.Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(AuthorName, StringMsg, Color, ulong);
+
+                        string weather = effects.GetWeather(player.GetPosition());
+                        float intensity = effects.GetWeatherIntensity(player.GetPosition());
+                        Log.Debug($"Weather {weather} intensity near {player.DisplayName} is {intensity}");
+
+                    }
+
+                });
+
+                stopWatch.Restart();
+
                 // do stuff here
 
             }
