@@ -1,5 +1,6 @@
 ﻿using NLog;
 using Sandbox.Game;
+using Sandbox.Game.Screens.Helpers;
 using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using System;
@@ -19,6 +20,7 @@ using Torch.Session;
 using VRage.Game;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
+using VRageMath;
 
 namespace TorchPlugin
 {
@@ -62,7 +64,7 @@ namespace TorchPlugin
                     return;
 
                 var elapsed = stopWatch.Elapsed;
-                if (elapsed.TotalSeconds < 10)
+                if (elapsed.TotalSeconds < 30)
                     return;
 
                 //var entities = new HashSet<IMyEntity>();
@@ -82,22 +84,39 @@ namespace TorchPlugin
 
                 MyAPIGateway.Utilities.InvokeOnGameThread(() => {
                     //DO STUFF
+                    var players = MySession.Static.Players.GetOnlinePlayers();
+
+                    var entities = new HashSet<IMyEntity>();
+                    MyAPIGateway.Entities.GetEntities(entities, entity => entity.DisplayName != null && entity.DisplayName.IndexOf("TRACK") != -1);
+                    foreach (var entity in entities)
+                    {
+                        MyGps gps = new MyGps
+                        {
+                            Coords = entity.GetPosition(),
+                            Name = string.Format("@{0}: {1}", DateTime.UtcNow, entity.DisplayName),
+                            //AlwaysVisible = true,
+                            ShowOnHud = true,
+                            GPSColor = Color.Green,
+                            DiscardAt = TimeSpan.FromMinutes(30),
+                            IsContainerGPS = false,
+                        };
+
+                        foreach (var player in players) {
+                            Torch.CurrentSession.KeenSession.Gpss.SendAddGps(player.Identity.IdentityId, ref gps, 0L, false);
+                        }
+                        
+                    }
 
                     //MyAPIGateway.Players.GetPlayers(players);
 
                     IMyWeatherEffects effects = Torch.CurrentSession.KeenSession.WeatherEffects;
-                    var players = MySession.Static.Players.GetOnlinePlayers();
                     foreach (var player in players)
                     {
                         //Log.Info(player.DisplayName);
                         //MySession.Static.Players.TryGetSteamId()
                         //Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther("Bubba", "AAAAAA", Color.Red, player.Client.SteamUserId);
                         //Plugin.Instance.Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(AuthorName, StringMsg, Color, ulong);
-
-                        string weather = effects.GetWeather(player.GetPosition());
-                        float intensity = effects.GetWeatherIntensity(player.GetPosition());
-                        Log.Debug($"Weather {weather} intensity near {player.DisplayName} is {intensity}");
-
+                        
                     }
 
                 });
