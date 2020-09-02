@@ -1,5 +1,7 @@
-﻿using NLog;
+﻿using ALE_Core.Utils;
+using NLog;
 using Sandbox.Game;
+using Sandbox.Game.Entities;
 using Sandbox.Game.Screens.Helpers;
 using Sandbox.Game.World;
 using Sandbox.ModAPI;
@@ -18,6 +20,7 @@ using Torch.API.Session;
 using Torch.Commands;
 using Torch.Session;
 using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRageMath;
@@ -64,7 +67,7 @@ namespace TorchPlugin
                     return;
 
                 var elapsed = stopWatch.Elapsed;
-                if (elapsed.TotalSeconds < 30)
+                if (elapsed.TotalSeconds < 1)
                     return;
 
                 //var entities = new HashSet<IMyEntity>();
@@ -82,10 +85,44 @@ namespace TorchPlugin
                 //    Log.Info("Mod loaded: " + mod.FriendlyName);
                 //}
 
-                MyAPIGateway.Utilities.InvokeOnGameThread(() => {
-                    //DO STUFF
-                    var players = MySession.Static.Players.GetOnlinePlayers();
+                {
+                    BoundingSphereD boundingSphereD = new BoundingSphereD(new Vector3D(0, 0, 0), 1000.0);
+                    var entities = new List<MyEntity>();
+                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, entities, MyEntityQueryType.Dynamic);
+                    var protectedGrid = entities.Find(
+                        entity => {
+                            bool flag = true;
+                            if (entity is MyCubeGrid)
+                            {
+                                MyCubeGrid mcg = entity as MyCubeGrid;
+                                long identityId = OwnershipUtils.GetOwner(entity as MyCubeGrid);
+                                //MyPlayer.PlayerId playerId;
+                                //MySession.Static.Players.TryGetPlayerId(identityId, out playerId);
+                                var steamId = MySession.Static.Players.TryGetSteamId(identityId);
+                                flag &= steamId != 0L && MySession.Static.IsUserSpaceMaster(steamId);
+                                flag &= mcg.DestructibleBlocks == false;
+                            }
+                            else
+                            {
+                                flag = false;
+                            }
+                            return flag;
+                        });
+                    
+                    Parallel.ForEach(entities, entity =>
+                    {
+                        Log.Debug(entity.GetType());
+                        if (entity is MyCubeGrid)
+                        {
+                            var myCubeGrid = entity as MyCubeGrid;
+                            myCubeGrid.DestructibleBlocks = !(protectedGrid != null);
+                        }
+                    });
+                }
 
+                var players = MySession.Static.Players.GetOnlinePlayers();
+
+                {
                     var entities = new HashSet<IMyEntity>();
                     MyAPIGateway.Entities.GetEntities(entities, entity => entity.DisplayName != null && entity.DisplayName.IndexOf("TRACK") != -1);
                     foreach (var entity in entities)
@@ -101,23 +138,29 @@ namespace TorchPlugin
                             IsContainerGPS = false,
                         };
 
-                        foreach (var player in players) {
+                        foreach (var player in players)
+                        {
                             Torch.CurrentSession.KeenSession.Gpss.SendAddGps(player.Identity.IdentityId, ref gps, 0L, false);
                         }
-                        
-                    }
 
-                    //MyAPIGateway.Players.GetPlayers(players);
-
-                    IMyWeatherEffects effects = Torch.CurrentSession.KeenSession.WeatherEffects;
-                    foreach (var player in players)
-                    {
-                        //Log.Info(player.DisplayName);
-                        //MySession.Static.Players.TryGetSteamId()
-                        //Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther("Bubba", "AAAAAA", Color.Red, player.Client.SteamUserId);
-                        //Plugin.Instance.Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(AuthorName, StringMsg, Color, ulong);
-                        
                     }
+                }
+
+                //MyAPIGateway.Players.GetPlayers(players);
+
+                IMyWeatherEffects effects = Torch.CurrentSession.KeenSession.WeatherEffects;
+                foreach (var player in players)
+                {
+                    //Log.Info(player.DisplayName);
+                    //MySession.Static.Players.TryGetSteamId()
+                    //Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther("Bubba", "AAAAAA", Color.Red, player.Client.SteamUserId);
+                    //Plugin.Instance.Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(AuthorName, StringMsg, Color, ulong);
+
+                }
+
+                MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+                    //DO STUFF
+                    
 
                 });
 
