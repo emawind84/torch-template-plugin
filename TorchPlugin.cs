@@ -5,6 +5,7 @@ using Sandbox.Game.Entities;
 using Sandbox.Game.Screens.Helpers;
 using Sandbox.Game.World;
 using Sandbox.ModAPI;
+using SpaceEngineers.Game.ModAPI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -18,11 +19,9 @@ using Torch.API.Managers;
 using Torch.API.Plugins;
 using Torch.API.Session;
 using Torch.Commands;
+using Torch.Managers.ChatManager;
 using Torch.Session;
-using VRage.Game;
 using VRage.Game.Entity;
-using VRage.Game.ModAPI;
-using VRage.ModAPI;
 using VRageMath;
 
 namespace TorchPlugin
@@ -94,7 +93,7 @@ namespace TorchPlugin
                 {
                     var players = MySession.Static.Players.GetOnlinePlayers();
                     Parallel.ForEach(players, player => {
-                        BoundingSphereD boundingSphereD = new BoundingSphereD(player.GetPosition(), 200.0);
+                        BoundingSphereD boundingSphereD = new BoundingSphereD(player.GetPosition(), 20.0);
                         var entities = new List<MyEntity>();
                         MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, entities, MyEntityQueryType.Both);
                         IEnumerable<MyCubeGrid> grids = entities.OfType<MyCubeGrid>();
@@ -103,33 +102,42 @@ namespace TorchPlugin
                         foreach (var grid in grids)
                         {
                             if (masterGrid != null) break;
-                            bool flag = true;
-                            //long ownerIdentityId = OwnershipUtils.GetOwner(grid);
-                            //var ownerSteamId = MySession.Static.Players.TryGetSteamId(ownerIdentityId);
-                            //flag &= ownerSteamId != 0L && MySession.Static.IsUserSpaceMaster(ownerSteamId);
-                            flag &= grid.DestructibleBlocks == false;
-                            var beacons = grid.GetBlocks().Where(blk => blk.FatBlock is IMyBeacon);
-
-                            IMyBeacon beacon = null;
-                            foreach (var blk in beacons)
+                            var safeZoneBlocks = grid.GetBlocks().Where(blk => blk.FatBlock is IMySafeZoneBlock);
+                            foreach (var _slimBlock in safeZoneBlocks)
                             {
-                                if (blk.FatBlock?.DisplayName?.IndexOf("SAFEZONE") == -1) continue;
-                                var ownerSteamId = MySession.Static.Players.TryGetSteamId(beacon.OwnerId);
-                                if (ownerSteamId == 0L || !MySession.Static.IsUserSpaceMaster(ownerSteamId)) continue;
-
-                                beacon = blk.FatBlock as IMyBeacon;
-                                break;
+                                var _safeZone = _slimBlock.FatBlock as IMySafeZoneBlock;
+                                var ownerSteamId = MySession.Static.Players.TryGetSteamId(_safeZone.OwnerId);
+                                if (_safeZone.IsWorking 
+                                && _safeZone.CustomData.IndexOf("[SAFEZONE]") != -1
+                                && ownerSteamId != 0L && MySession.Static.IsUserSpaceMaster(ownerSteamId))
+                                {
+                                    masterGrid = grid;
+                                    break;
+                                }
                             }
-                            if (beacon == null) flag = false;
-                            if (flag) masterGrid = grid;
+                        }
+
+                        if (masterGrid.DestructibleBlocks)
+                        {
+                            masterGrid.DestructibleBlocks = false;
                         }
 
                         Parallel.ForEach(grids, grid =>
                         {
-                            var cg = grid as MyCubeGrid;
-                            if (grid != masterGrid && cg.BigOwners.Contains(player.Identity.IdentityId))
+                            if (grid != masterGrid && grid.BigOwners.Contains(player.Identity.IdentityId))
                             {
-                                cg.DestructibleBlocks = !(masterGrid != null);
+                                if (masterGrid != null && grid.DestructibleBlocks)
+                                {
+                                    Log.Debug("safezone in");
+                                    Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(masterGrid.DisplayName ?? "Server", "You entered a safe zone", Color.Green, player.Client.SteamUserId);
+                                    grid.DestructibleBlocks = false;
+                                }
+                                else if (masterGrid == null && grid.DestructibleBlocks == false)
+                                {
+                                    Log.Debug("safezone out");
+                                    Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(masterGrid.DisplayName ?? "Server", "You left the safe zone", Color.Red, player.Client.SteamUserId);
+                                    grid.DestructibleBlocks = true;
+                                }
                             }
                         });
 
