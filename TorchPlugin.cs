@@ -67,9 +67,10 @@ namespace TorchPlugin
                     return;
 
                 var elapsed = stopWatch.Elapsed;
-                if (elapsed.TotalSeconds < 1)
+                if (elapsed.TotalSeconds < 2)
                     return;
 
+                stopWatch.Restart();
                 //var entities = new HashSet<IMyEntity>();
                 //MyAPIGateway.Entities.GetEntities(entities);
                 //foreach (var entity in entities)
@@ -85,89 +86,85 @@ namespace TorchPlugin
                 //    Log.Info("Mod loaded: " + mod.FriendlyName);
                 //}
 
+                //List<MyCubeGrid> grids = MyEntities.GetEntities().OfType<MyCubeGrid>().ToList();
+
+                //MyPlayer.PlayerId playerId;
+                //MySession.Static.Players.TryGetPlayerId(identityId, out playerId);
+
                 {
-                    BoundingSphereD boundingSphereD = new BoundingSphereD(new Vector3D(0, 0, 0), 1000.0);
-                    var entities = new List<MyEntity>();
-                    MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, entities, MyEntityQueryType.Dynamic);
-                    var protectedGrid = entities.Find(
-                        entity => {
-                            bool flag = true;
-                            if (entity is MyCubeGrid)
-                            {
-                                MyCubeGrid mcg = entity as MyCubeGrid;
-                                long identityId = OwnershipUtils.GetOwner(entity as MyCubeGrid);
-                                //MyPlayer.PlayerId playerId;
-                                //MySession.Static.Players.TryGetPlayerId(identityId, out playerId);
-                                var steamId = MySession.Static.Players.TryGetSteamId(identityId);
-                                flag &= steamId != 0L && MySession.Static.IsUserSpaceMaster(steamId);
-                                flag &= mcg.DestructibleBlocks == false;
-                            }
-                            else
-                            {
-                                flag = false;
-                            }
-                            return flag;
-                        });
-                    
-                    Parallel.ForEach(entities, entity =>
-                    {
-                        Log.Debug(entity.GetType());
-                        if (entity is MyCubeGrid)
+                    var players = MySession.Static.Players.GetOnlinePlayers();
+                    Parallel.ForEach(players, player => {
+                        BoundingSphereD boundingSphereD = new BoundingSphereD(player.GetPosition(), 200.0);
+                        var entities = new List<MyEntity>();
+                        MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, entities, MyEntityQueryType.Both);
+                        IEnumerable<MyCubeGrid> grids = entities.OfType<MyCubeGrid>();
+
+                        MyCubeGrid masterGrid = null;
+                        foreach (var grid in grids)
                         {
-                            var myCubeGrid = entity as MyCubeGrid;
-                            myCubeGrid.DestructibleBlocks = !(protectedGrid != null);
+                            if (masterGrid != null) break;
+                            bool flag = true;
+                            //long ownerIdentityId = OwnershipUtils.GetOwner(grid);
+                            //var ownerSteamId = MySession.Static.Players.TryGetSteamId(ownerIdentityId);
+                            //flag &= ownerSteamId != 0L && MySession.Static.IsUserSpaceMaster(ownerSteamId);
+                            flag &= grid.DestructibleBlocks == false;
+                            var beacons = grid.GetBlocks().Where(blk => blk.FatBlock is IMyBeacon);
+
+                            IMyBeacon beacon = null;
+                            foreach (var blk in beacons)
+                            {
+                                if (blk.FatBlock?.DisplayName?.IndexOf("SAFEZONE") == -1) continue;
+                                var ownerSteamId = MySession.Static.Players.TryGetSteamId(beacon.OwnerId);
+                                if (ownerSteamId == 0L || !MySession.Static.IsUserSpaceMaster(ownerSteamId)) continue;
+
+                                beacon = blk.FatBlock as IMyBeacon;
+                                break;
+                            }
+                            if (beacon == null) flag = false;
+                            if (flag) masterGrid = grid;
                         }
+
+                        Parallel.ForEach(grids, grid =>
+                        {
+                            var cg = grid as MyCubeGrid;
+                            if (grid != masterGrid && cg.BigOwners.Contains(player.Identity.IdentityId))
+                            {
+                                cg.DestructibleBlocks = !(masterGrid != null);
+                            }
+                        });
+
                     });
                 }
 
-                var players = MySession.Static.Players.GetOnlinePlayers();
+                //{
+                //    var players = MySession.Static.Players.GetOnlinePlayers();
+                //    var entities = new HashSet<IMyEntity>();
 
-                {
-                    var entities = new HashSet<IMyEntity>();
-                    MyAPIGateway.Entities.GetEntities(entities, entity => entity.DisplayName != null && entity.DisplayName.IndexOf("TRACK") != -1);
-                    foreach (var entity in entities)
-                    {
-                        MyGps gps = new MyGps
-                        {
-                            Coords = entity.GetPosition(),
-                            Name = string.Format("@{0}: {1}", DateTime.UtcNow, entity.DisplayName),
-                            //AlwaysVisible = true,
-                            ShowOnHud = true,
-                            GPSColor = Color.Green,
-                            DiscardAt = TimeSpan.FromMinutes(30),
-                            IsContainerGPS = false,
-                        };
+                //    MyAPIGateway.Entities.GetEntities(entities, entity => entity.DisplayName != null && entity.DisplayName.IndexOf("TRACK") != -1);
+                //    foreach (var entity in entities)
+                //    {
+                //        MyGps gps = new MyGps
+                //        {
+                //            Coords = entity.GetPosition(),
+                //            Name = string.Format("@{0}: {1}", DateTime.UtcNow, entity.DisplayName),
+                //            //AlwaysVisible = true,
+                //            ShowOnHud = true,
+                //            GPSColor = Color.Green,
+                //            DiscardAt = TimeSpan.FromMinutes(30),
+                //            IsContainerGPS = false,
+                //        };
 
-                        foreach (var player in players)
-                        {
-                            Torch.CurrentSession.KeenSession.Gpss.SendAddGps(player.Identity.IdentityId, ref gps, 0L, false);
-                        }
+                //        foreach (var player in players)
+                //        {
+                //            Torch.CurrentSession.KeenSession.Gpss.SendAddGps(player.Identity.IdentityId, ref gps, 0L, false);
+                //        }
 
-                    }
-                }
+                //    }
+                //}
 
-                //MyAPIGateway.Players.GetPlayers(players);
-
-                IMyWeatherEffects effects = Torch.CurrentSession.KeenSession.WeatherEffects;
-                foreach (var player in players)
-                {
-                    //Log.Info(player.DisplayName);
-                    //MySession.Static.Players.TryGetSteamId()
-                    //Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther("Bubba", "AAAAAA", Color.Red, player.Client.SteamUserId);
-                    //Plugin.Instance.Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(AuthorName, StringMsg, Color, ulong);
-
-                }
-
-                MyAPIGateway.Utilities.InvokeOnGameThread(() => {
-                    //DO STUFF
-                    
-
-                });
+                Log.Debug($"Completed in {stopWatch.ElapsedMilliseconds}ms");
 
                 stopWatch.Restart();
-
-                // do stuff here
-
             }
             catch (Exception e)
             {
