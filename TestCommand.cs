@@ -2,6 +2,7 @@
 using Sandbox.Game.Screens.Helpers;
 using Sandbox.Game.World;
 using Sandbox.ModAPI;
+using Sandbox.ModAPI.Ingame;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,33 +23,34 @@ namespace TorchPlugin
 
         public static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-        [Command("test", "This is a Test Command.")]
+        [Command("showorbit", "Draw the orbit using GPS waypoints")]
         [Permission(MyPromoteLevel.Admin)]
-        public void Test()
+        public void ShowOrbit(string orbitCenterPositionGPSCoords, double orbitZYangle, double orbitRadius)
         {
-            Context.Respond("This is a Test from " + Context.Player);
-            //MyAPIGateway.Entities.GetEntity(entity => entity.)
-            Vector3D planetCenterPosition = new Vector3D(0, 0, 0);
-            double planetRadius = 1000;
+            Vector3D orbitCenterPosition = new Vector3D(0, 0, 0);
+            if (MyWaypointInfo.TryParse(orbitCenterPositionGPSCoords, out MyWaypointInfo waypointInfo))
+            {
+                orbitCenterPosition = waypointInfo.Coords;
+            }
 
-            double radAngle = 0;
-            for (var i = 0; i < 8; i++)
+            int numberOfGps = 20;
+            double entityXYAngle = 0;
+            for (var i = 0; i < numberOfGps; i++)
             {
                 var z = 0;
-                var x = planetRadius * Math.Cos(radAngle);
-                var y = planetRadius * Math.Sin(radAngle);
+                var x = orbitRadius * Math.Cos(entityXYAngle);
+                var y = orbitRadius * Math.Sin(entityXYAngle);
 
-                double entityAngle = CalculateYZAngle();
-                MatrixD xRotationMatrix = new MatrixD(1, 0, 0, 0, Math.Cos(entityAngle), -Math.Sin(entityAngle), 0, Math.Sin(entityAngle), Math.Cos(entityAngle));
+                MatrixD xRotationMatrix = new MatrixD(1, 0, 0, 0, Math.Cos(orbitZYangle), -Math.Sin(orbitZYangle), 0, Math.Sin(orbitZYangle), Math.Cos(orbitZYangle));
                 
                 var gpsCoords = new Vector3D(x, y, z);
                 gpsCoords = Vector3D.Rotate(gpsCoords, xRotationMatrix);
-                gpsCoords = Vector3D.Add(gpsCoords, planetCenterPosition);
+                gpsCoords = Vector3D.Add(gpsCoords, orbitCenterPosition);
 
                 MyGps gps = new MyGps
                 {
                     Coords = gpsCoords,
-                    Name = "@" + MathHelper.ToDegrees(radAngle),
+                    Name = string.Format("WP:{0:#.###}", entityXYAngle),
                     AlwaysVisible = true,
                     ShowOnHud = true,
                     GPSColor = Color.Red
@@ -56,84 +58,82 @@ namespace TorchPlugin
                 Context.Torch.CurrentSession.KeenSession.Gpss.SendAddGps(Context.Player.IdentityId, ref gps);
 
                 Log.Info(gps);
-                radAngle += (Math.PI * 2) / 8;
+                entityXYAngle += Math.PI * 2 / numberOfGps;
             }
         }
 
-        [Command("angle", "This is a Test Command.")]
+        [Command("orbitangle", "Calculate the orbit angle based on current location")]
         [Permission(MyPromoteLevel.Admin)]
-        public void CheckYZAngle()
+        public void CheckYZAngle(string orbitCenterPositionGPSCoords)
         {
-            CalculateYZAngle();
+            if (MyWaypointInfo.TryParse(orbitCenterPositionGPSCoords, out MyWaypointInfo waypointInfo))
+            {
+                double angle = CalculateYZAngle(waypointInfo.Coords);
+                Context.Respond("Calculated Angle RAD: " + angle + " | DEG: " + MathHelper.ToDegrees(angle));
+            }
         }
 
-        private double CalculateYZAngle()
+        private double CalculateYZAngle(Vector3D orbitCenterPosition)
         {
-            Vector3D planetCenterPosition = new Vector3D(0, 0, 0);
             var yDirectionalVector = new Vector3D(0, 1, 0);
-            var entityToPlanetDirectionalVector = Vector3D.Normalize(Context.Player.GetPosition() - planetCenterPosition);
+            var entityToPlanetDirectionalVector = Vector3D.Normalize(Context.Player.GetPosition() - orbitCenterPosition);
             var entityAngle = Math.Atan2(entityToPlanetDirectionalVector.Y, entityToPlanetDirectionalVector.Z)
                 - Math.Atan2(yDirectionalVector.Y, yDirectionalVector.Z);
-            if (entityAngle < 0) entityAngle += 2 * Math.PI;
-            Context.Respond("Entity angle: " + entityAngle);
+            if (entityAngle < 0)
+            {
+                entityAngle += 2 * Math.PI;
+            }
             if (entityAngle > (Math.PI / 2) && entityAngle < (Math.PI * 3 / 2))
             {
-
                 entityAngle += Math.PI;
             }
-
-            Context.Respond("Entity angle fix: " + entityAngle);
-
             return entityAngle;
         }
 
-        [Command("next", "This is a Test Command.")]
+        [Command("nextwaypoint", "Find the next waypoint based on current position")]
         [Permission(MyPromoteLevel.Admin)]
-        public void NextWaypoint()
+        public void NextWaypoint(string orbitCenterPositionGPSCoords, double orbitZYangle, double orbitRadius = 1000)
         {
-            Vector3D planetCenterPosition = new Vector3D(0, 0, 0);
-            double planetRadius = 1000;
+            Vector3D orbitCenterPosition = new Vector3D(0, 0, 0);
+            if (MyWaypointInfo.TryParse(orbitCenterPositionGPSCoords, out MyWaypointInfo waypointInfo))
+            {
+                orbitCenterPosition = waypointInfo.Coords;
+            }
 
             var xDirectionalVector = new Vector3D(1, 0, 0);
             var yDirectionalVector = new Vector3D(0, 1, 0);
-            var entityToPlanetDirectionalVector = Vector3D.Normalize(Context.Player.GetPosition() - planetCenterPosition);
+            var entityToPlanetDirectionalVector = Vector3D.Normalize(Context.Player.GetPosition() - orbitCenterPosition);
 
             var dotX = Vector3D.Dot(xDirectionalVector, entityToPlanetDirectionalVector);
             var dotY = Vector3D.Dot(yDirectionalVector, entityToPlanetDirectionalVector);
 
-            Context.Respond($"dotX: {dotX} - dotY: {dotY}");
             var entityXYAngle = Math.Acos(MathHelper.Clamp(dotX, -1f, 1f));
             if (dotY < 0)
             {
                 entityXYAngle = 2 * Math.PI - entityXYAngle;
             }
-            //var entityXYAngle = Math.Atan2(entityToPlanetDirectionalVector.Y, entityToPlanetDirectionalVector.X)
-            //    - Math.Atan2(xDirectionalVector.Y, xDirectionalVector.X);
-            //if (entityXYAngle < 0) entityXYAngle += 2 * Math.PI;
 
-            entityXYAngle += (Math.PI * 2) / 20;  // next waypoint increment
+            entityXYAngle += Math.PI * 2 / 20;  // next waypoint increment
             
-            Context.Respond("@" + entityXYAngle + " - " + MathHelper.ToDegrees(entityXYAngle));
-
             var z = 0;
-            var x = planetRadius * Math.Cos(entityXYAngle);
-            var y = planetRadius * Math.Sin(entityXYAngle);
-
-            double entityAngle = CalculateYZAngle();
-            MatrixD xRotationMatrix = new MatrixD(1, 0, 0, 0, Math.Cos(entityAngle), -Math.Sin(entityAngle), 0, Math.Sin(entityAngle), Math.Cos(entityAngle));
+            var x = orbitRadius * Math.Cos(entityXYAngle);
+            var y = orbitRadius * Math.Sin(entityXYAngle);
+            
+            MatrixD xRotationMatrix = new MatrixD(1, 0, 0, 0, Math.Cos(orbitZYangle), -Math.Sin(orbitZYangle), 0, Math.Sin(orbitZYangle), Math.Cos(orbitZYangle));
             var gpsCoords = new Vector3D(x, y, z);
             gpsCoords = Vector3D.Rotate(gpsCoords, xRotationMatrix);
-            gpsCoords = Vector3D.Add(gpsCoords, planetCenterPosition);
+            gpsCoords = Vector3D.Add(gpsCoords, orbitCenterPosition);
 
             MyGps gps = new MyGps
             {
                 Coords = gpsCoords,
-                Name = "@ " + MathHelper.ToDegrees(entityXYAngle),
+                Name = string.Format("WP:{0:#.###}", entityXYAngle),
                 AlwaysVisible = true,
                 ShowOnHud = true,
                 GPSColor = Color.Green
             };
             Context.Torch.CurrentSession.KeenSession.Gpss.SendAddGps(Context.Player.IdentityId, ref gps);
+            Context.Respond($"Next waypoint: {gps}");
 
             Log.Info(gps);
         }
