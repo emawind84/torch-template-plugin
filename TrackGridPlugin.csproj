@@ -7,8 +7,8 @@
     <ProjectGuid>{B2D7F36E-3016-46DD-A37B-1A4E15CA0F6B}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>TorchPlugin</RootNamespace>
-    <AssemblyName>TorchPlugin</AssemblyName>
+    <RootNamespace>TrackGridPlugin</RootNamespace>
+    <AssemblyName>TrackGridPlugin</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -131,6 +131,5 @@
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
-  <Import Project="ALE-Core\ALE-Core.projitems" Label="Shared" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

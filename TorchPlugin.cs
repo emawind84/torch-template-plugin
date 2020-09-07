@@ -1,5 +1,4 @@
-﻿using ALE_Core.Utils;
-using NLog;
+﻿using NLog;
 using Sandbox.Game;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Screens.Helpers;
@@ -22,6 +21,7 @@ using Torch.Commands;
 using Torch.Managers.ChatManager;
 using Torch.Session;
 using VRage.Game.Entity;
+using VRage.ModAPI;
 using VRageMath;
 
 namespace TorchPlugin
@@ -66,109 +66,30 @@ namespace TorchPlugin
                     return;
 
                 var elapsed = stopWatch.Elapsed;
-                if (elapsed.TotalSeconds < 2)
+                if (elapsed.TotalSeconds < 30)
                     return;
 
                 stopWatch.Restart();
-                //var entities = new HashSet<IMyEntity>();
-                //MyAPIGateway.Entities.GetEntities(entities);
-                //foreach (var entity in entities)
-                //{
-                //    Log.Info("Found entity: " + entity.GetFriendlyName());
-                //}
-
-                ////MyVisualScriptLogicProvider.AddToPlayersInventory();
-
-                //Log.Info("do stuff here");
-                //foreach (var mod in MySession.Static.Mods)
-                //{
-                //    Log.Info("Mod loaded: " + mod.FriendlyName);
-                //}
-
-                //List<MyCubeGrid> grids = MyEntities.GetEntities().OfType<MyCubeGrid>().ToList();
-
-                //MyPlayer.PlayerId playerId;
-                //MySession.Static.Players.TryGetPlayerId(identityId, out playerId);
-
+                
                 {
-                    var players = MySession.Static.Players.GetOnlinePlayers();
-                    Parallel.ForEach(players, player => {
-                        BoundingSphereD boundingSphereD = new BoundingSphereD(player.GetPosition(), 20.0);
-                        var entities = new List<MyEntity>();
-                        MyGamePruningStructure.GetAllTopMostEntitiesInSphere(ref boundingSphereD, entities, MyEntityQueryType.Both);
-                        IEnumerable<MyCubeGrid> grids = entities.OfType<MyCubeGrid>();
-
-                        MyCubeGrid masterGrid = null;
-                        foreach (var grid in grids)
+                    var entities = new HashSet<IMyEntity>();
+                    MyAPIGateway.Entities.GetEntities(entities, entity => entity.DisplayName != null 
+                    && entity.DisplayName.IndexOf("[TRACK]", StringComparison.InvariantCultureIgnoreCase) != -1);
+                    foreach (MyCubeGrid entity in entities)
+                    {
+                        MyGps gps = new MyGps
                         {
-                            if (masterGrid != null) break;
-                            var safeZoneBlocks = grid.GetBlocks().Where(blk => blk.FatBlock is IMySafeZoneBlock);
-                            foreach (var _slimBlock in safeZoneBlocks)
-                            {
-                                var _safeZone = _slimBlock.FatBlock as IMySafeZoneBlock;
-                                var ownerSteamId = MySession.Static.Players.TryGetSteamId(_safeZone.OwnerId);
-                                if (_safeZone.IsWorking 
-                                && _safeZone.CustomData.IndexOf("[SAFEZONE]") != -1
-                                && ownerSteamId != 0L && MySession.Static.IsUserSpaceMaster(ownerSteamId))
-                                {
-                                    masterGrid = grid;
-                                    break;
-                                }
-                            }
-                        }
+                            Coords = entity.WorldMatrix.Translation,
+                            Name = string.Format("{0}: {1}", entity.DisplayName, DateTime.UtcNow),
+                            ShowOnHud = true,
+                            GPSColor = Color.Green,
+                            DiscardAt = new TimeSpan?(TimeSpan.FromSeconds(MySession.Static.ElapsedPlayTime.TotalSeconds + 600))
+                        };
+                        gps.DiscardAt = new TimeSpan?(TimeSpan.FromSeconds(MySession.Static.ElapsedPlayTime.TotalSeconds + 600));
 
-                        if (masterGrid.DestructibleBlocks)
-                        {
-                            masterGrid.DestructibleBlocks = false;
-                        }
-
-                        Parallel.ForEach(grids, grid =>
-                        {
-                            if (grid != masterGrid && grid.BigOwners.Contains(player.Identity.IdentityId))
-                            {
-                                if (masterGrid != null && grid.DestructibleBlocks)
-                                {
-                                    Log.Debug("safezone in");
-                                    Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(masterGrid.DisplayName ?? "Server", "You entered a safe zone", Color.Green, player.Client.SteamUserId);
-                                    grid.DestructibleBlocks = false;
-                                }
-                                else if (masterGrid == null && grid.DestructibleBlocks == false)
-                                {
-                                    Log.Debug("safezone out");
-                                    Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(masterGrid.DisplayName ?? "Server", "You left the safe zone", Color.Red, player.Client.SteamUserId);
-                                    grid.DestructibleBlocks = true;
-                                }
-                            }
-                        });
-
-                    });
+                        Torch.CurrentSession.KeenSession.Gpss.SendAddGps(GetOwner(entity), ref gps, 0L, false);
+                    }
                 }
-
-                //{
-                //    var players = MySession.Static.Players.GetOnlinePlayers();
-                //    var entities = new HashSet<IMyEntity>();
-
-                //    MyAPIGateway.Entities.GetEntities(entities, entity => entity.DisplayName != null && entity.DisplayName.IndexOf("TRACK") != -1);
-                //    foreach (var entity in entities)
-                //    {
-                //        MyGps gps = new MyGps
-                //        {
-                //            Coords = entity.GetPosition(),
-                //            Name = string.Format("@{0}: {1}", DateTime.UtcNow, entity.DisplayName),
-                //            //AlwaysVisible = true,
-                //            ShowOnHud = true,
-                //            GPSColor = Color.Green,
-                //            DiscardAt = TimeSpan.FromMinutes(30),
-                //            IsContainerGPS = false,
-                //        };
-
-                //        foreach (var player in players)
-                //        {
-                //            Torch.CurrentSession.KeenSession.Gpss.SendAddGps(player.Identity.IdentityId, ref gps, 0L, false);
-                //        }
-
-                //    }
-                //}
 
                 Log.Debug($"Completed in {stopWatch.ElapsedMilliseconds}ms");
 
@@ -219,6 +140,21 @@ namespace TorchPlugin
                 stopWatch.Stop();
                 Log.Info("Session Unloading, suspend backup timer!");
             }
+        }
+
+        public static long GetOwner(MyCubeGrid grid)
+        {
+
+            var gridOwnerList = grid.BigOwners;
+            var ownerCnt = gridOwnerList.Count;
+            var gridOwner = 0L;
+
+            if (ownerCnt > 0 && gridOwnerList[0] != 0)
+                return gridOwnerList[0];
+            else if (ownerCnt > 1)
+                return gridOwnerList[1];
+
+            return gridOwner;
         }
     }
 }

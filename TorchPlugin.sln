@@ -3,14 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.1169
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TorchPlugin", "TorchPlugin.csproj", "{B2D7F36E-3016-46DD-A37B-1A4E15CA0F6B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrackGridPlugin", "TrackGridPlugin.csproj", "{B2D7F36E-3016-46DD-A37B-1A4E15CA0F6B}"
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "ALE-Core", "ALE-Core\ALE-Core.shproj", "{6692DDE3-BD7D-4239-9230-FDD834526DB2}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		ALE-Core\ALE-Core.projitems*{6692dde3-bd7d-4239-9230-fdd834526db2}*SharedItemsImports = 13
-		ALE-Core\ALE-Core.projitems*{b2d7f36e-3016-46dd-a37b-1a4e15ca0f6b}*SharedItemsImports = 4
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
