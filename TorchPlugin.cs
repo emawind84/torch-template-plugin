@@ -1,24 +1,14 @@
-﻿using NLog;
-using Sandbox.Game;
-using Sandbox.Game.World;
+﻿using EconomyAPI;
+using NLog;
 using Sandbox.ModAPI;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Torch;
 using Torch.API;
 using Torch.API.Managers;
-using Torch.API.Plugins;
 using Torch.API.Session;
-using Torch.Commands;
 using Torch.Session;
-using VRage.Game;
-using VRage.Game.ModAPI;
-using VRage.ModAPI;
 
 namespace TorchPlugin
 {
@@ -65,47 +55,14 @@ namespace TorchPlugin
                 if (elapsed.TotalSeconds < 10)
                     return;
 
-                //var entities = new HashSet<IMyEntity>();
-                //MyAPIGateway.Entities.GetEntities(entities);
-                //foreach (var entity in entities)
-                //{
-                //    Log.Info("Found entity: " + entity.GetFriendlyName());
-                //}
-
-                ////MyVisualScriptLogicProvider.AddToPlayersInventory();
-
-                //Log.Info("do stuff here");
-                //foreach (var mod in MySession.Static.Mods)
-                //{
-                //    Log.Info("Mod loaded: " + mod.FriendlyName);
-                //}
-
-                MyAPIGateway.Utilities.InvokeOnGameThread(() => {
-                    //DO STUFF
-
-                    //MyAPIGateway.Players.GetPlayers(players);
-
-                    IMyWeatherEffects effects = Torch.CurrentSession.KeenSession.WeatherEffects;
-                    var players = MySession.Static.Players.GetOnlinePlayers();
-                    foreach (var player in players)
-                    {
-                        //Log.Info(player.DisplayName);
-                        //MySession.Static.Players.TryGetSteamId()
-                        //Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther("Bubba", "AAAAAA", Color.Red, player.Client.SteamUserId);
-                        //Plugin.Instance.Torch.CurrentSession.Managers.GetManager<ChatManagerServer>()?.SendMessageAsOther(AuthorName, StringMsg, Color, ulong);
-
-                        string weather = effects.GetWeather(player.GetPosition());
-                        float intensity = effects.GetWeatherIntensity(player.GetPosition());
-                        Log.Debug($"Weather {weather} intensity near {player.DisplayName} is {intensity}");
-
-                    }
-
-                });
-
                 stopWatch.Restart();
 
-                // do stuff here
+                MyAPIGateway.Utilities.InvokeOnGameThread(() => {
+                    //EconPayUser.SendMessage(0, 1234, 55.4m, "test20", 55555, 123);
+                });
 
+                Log.Debug($"Completed in {stopWatch.ElapsedMilliseconds}ms");
+                stopWatch.Restart();
             }
             catch (Exception e)
             {
@@ -145,11 +102,13 @@ namespace TorchPlugin
             if (newState == TorchSessionState.Loaded)
             {
                 stopWatch.Start();
+                EconCommunication.Register();
                 Log.Info("Session loaded, start backup timer!");
             }
-            else if (newState == TorchSessionState.Unloading)
+            else if (newState == TorchSessionState.Unloading || newState == TorchSessionState.Unloaded)
             {
                 stopWatch.Stop();
+                EconCommunication.Unregister();
                 Log.Info("Session Unloading, suspend backup timer!");
             }
         }

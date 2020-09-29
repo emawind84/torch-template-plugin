@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0"?>
 <PluginManifest xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>MyFirstTorchPlugin</Name>
-  <Guid>54e2fcc2-a16b-4361-a95d-e4d16732198b</Guid>
+  <Name>Economy Mod API</Name>
+  <Guid>80599066-cdcc-44e9-a3c1-8071aeeaed12</Guid>
   <Repository>None</Repository>
   <Version>v1.0.0</Version>
 </PluginManifest>

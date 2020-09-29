@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EconomyAPI;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,6 +18,22 @@ namespace TorchPlugin
         [Permission(MyPromoteLevel.Admin)]
         public void Test()
         {
+            if (Context.Player != null)
+            {
+                // we are in game
+                EconCommunication.SendMessageToServer(new EconPayUser {
+                    FromPlayerIdentity = Context.Player.SteamUserId,
+                    ToPlayerIdentity = 1234,
+                    Reason = "test20",
+                    TransactionAmount = 55.4m,
+                    TransactionId = 0
+                });
+                //EconPayUser.SendMessage(Context.Player.SteamUserId, 1234, 55.4m, "test20", 21384, 123);
+            }
+            else
+            {
+                // we are using console
+            }
             Context.Respond("This is a Test from " + Context.Player);
         }
 
