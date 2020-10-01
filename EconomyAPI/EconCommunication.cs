@@ -33,6 +33,7 @@ namespace EconomyAPI
             _messagePool = new MyConcurrentPool<EconIncomingMessage>(8);
             
             MyAPIGateway.Multiplayer.RegisterMessageHandler(NET_ID, MessageHandler);
+            MyAPIGateway.Utilities.RegisterMessageHandler(NET_ID, MessageHandler);
             
             //background thread to handle de/compression and processing
             _closing = false;
@@ -44,13 +45,16 @@ namespace EconomyAPI
         {
             MyLog.Default.WriteLineAndConsole("TORCH MOD: Unregistering mod communication.");
             MyAPIGateway.Multiplayer?.UnregisterMessageHandler(NET_ID, MessageHandler);
+            MyAPIGateway.Utilities?.RegisterMessageHandler(NET_ID, MessageHandler);
+
             _processing?.CompleteAdding();
             _closing = true;
             //_task.Wait();
         }
 
-        private static void MessageHandler(byte[] bytes)
+        private static void MessageHandler(object message)
         {
+            var bytes = message as byte[];
             var m = _messagePool.Get();
             m.CompressedData = bytes;
 #if TORCH
@@ -80,13 +84,13 @@ namespace EconomyAPI
 
                     if (m is EconIncomingMessage) //process incoming messages
                     {
-                        MessageBase i;
+                        EconMessageBase i;
                         try
                         {
                             var o = MyCompression.Decompress(m.CompressedData);
                             m.CompressedData = null;
                             _messagePool.Return((EconIncomingMessage)m);
-                            i = MyAPIGateway.Utilities.SerializeFromBinary<MessageBase>(o);
+                            i = MyAPIGateway.Utilities.SerializeFromBinary<EconMessageBase>(o);
                         }
                         catch (Exception ex)
                         {
@@ -115,8 +119,8 @@ namespace EconomyAPI
                                 MyAPIGateway.Multiplayer.SendMessageTo(NET_ID, m.CompressedData, m.Target);
                                 break;
                             case MessageTarget.Server:
-                                //MyAPIGateway.Multiplayer.SendMessageToServer(NET_ID, m.CompressedData);
-                                MyAPIGateway.Utilities.SendModMessage(NET_ID, m.CompressedData);
+                                MyAPIGateway.Multiplayer.SendMessageToServer(NET_ID, m.CompressedData);
+                                //MyAPIGateway.Utilities.SendModMessage(NET_ID, m.CompressedData);
                                 break;
                             case MessageTarget.AllClients:
                                 MyAPIGateway.Players.GetPlayers(_playerCache);

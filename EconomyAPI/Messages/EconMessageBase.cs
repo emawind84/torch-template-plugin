@@ -5,12 +5,14 @@ using System.Text;
 using System.Threading.Tasks;
 using ProtoBuf;
 using Torch.Mod.Messages;
+using TorchPlugin.EconomyAPI.Messages;
 
 namespace EconomyAPI.Messages
 {
     #region Includes
     [ProtoInclude(1, typeof(EconPayUser))]
     [ProtoInclude(2, typeof(EconPayUserResponse))]
+    [ProtoInclude(3, typeof(EconCommandMessage))]
     #endregion
 
     [ProtoContract]

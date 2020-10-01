@@ -125,6 +125,7 @@
   <ItemGroup>
     <Compile Include="EconomyAPI\EconPayUser.cs" />
     <Compile Include="EconomyAPI\EconPayUserResponse.cs" />
+    <Compile Include="EconomyAPI\Messages\EconCommandMessage.cs" />
     <Compile Include="EconomyAPI\Messages\EconIncomingMessage.cs" />
     <Compile Include="EconomyAPI\Messages\EconMessageBase.cs" />
     <Compile Include="EconomyAPI\EconCommunication.cs" />

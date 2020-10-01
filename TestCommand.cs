@@ -6,42 +6,41 @@ using System.Text;
 using System.Threading.Tasks;
 using Torch.Commands;
 using Torch.Commands.Permissions;
+using TorchPlugin.EconomyAPI.Messages;
 using VRage.Game.ModAPI;
 
 namespace TorchPlugin
 {
-
+    [Category("econ")]
     public class TestCommand : CommandModule
     {
 
-        [Command("test", "This is a Test Command.")]
-        [Permission(MyPromoteLevel.Admin)]
-        public void Test()
+        [Command("pricelist", "This is a Test Command.")]
+        [Permission(MyPromoteLevel.None)]
+        public void Pricelist()
         {
             if (Context.Player != null)
             {
-                // we are in game
-                EconCommunication.SendMessageToServer(new EconPayUser {
-                    FromPlayerIdentity = Context.Player.SteamUserId,
-                    ToPlayerIdentity = 1234,
-                    Reason = "test20",
-                    TransactionAmount = 55.4m,
-                    TransactionId = 0
-                });
-                //EconPayUser.SendMessage(Context.Player.SteamUserId, 1234, 55.4m, "test20", 21384, 123);
+                EconCommunication.SendMessageTo(new EconCommandMessage { Command = "/pricelist " + Context.RawArgs }, Context.Player.SteamUserId);
             }
             else
             {
-                // we are using console
+                EconCommunication.SendMessageToServer(new EconCommandMessage { Command = "/pricelist " + Context.RawArgs });
             }
-            Context.Respond("This is a Test from " + Context.Player);
         }
 
-        [Command("testWithCommands", "This is a Test Command.")]
-        [Permission(MyPromoteLevel.None)]
-        public void TestWithArgs(string foo, string bar = null)
+        [Command("set", "This is a Test Command.")]
+        [Permission(MyPromoteLevel.SpaceMaster)]
+        public void SetCommand()
         {
-            Context.Respond("This is a Test " + foo + ", " + bar);
+            if (Context.Player != null)
+            {
+                EconCommunication.SendMessageTo(new EconCommandMessage { Command = "/set " + Context.RawArgs }, Context.Player.SteamUserId);
+            }
+            else
+            {
+                EconCommunication.SendMessageToServer(new EconCommandMessage { Command = "/set " + Context.RawArgs });
+            }
         }
 
     }

@@ -19,6 +19,9 @@
         [ProtoMember(201)]
         public EconPayUserMessage Message;
 
+        [ProtoMember(202)]
+        public long TransactionId;
+
         public override void ProcessClient()
         {
             throw new System.NotImplementedException();
@@ -26,7 +29,7 @@
 
         public override void ProcessServer()
         {
-            VRage.Utils.MyLog.Default.WriteLine(string.Format("Callback EconPayUserResponse: {0}", Message));
+            VRage.Utils.MyLog.Default.WriteLine(string.Format("Callback EconPayUserResponse: {0}, TransactionId {1}", Message, TransactionId));
         }
     }
 }
