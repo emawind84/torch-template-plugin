@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Torch.Commands;
 using Torch.Commands.Permissions;
@@ -15,6 +16,13 @@ namespace TorchPlugin
     public class TestCommand : CommandModule
     {
 
+        //[Command("test", "This is a Test Command.")]
+        //[Permission(MyPromoteLevel.None)]
+        //public void TestSleep()
+        //{
+        //    Thread.Sleep(1000);
+        //}
+
         [Command("pricelist", "This is a Test Command.")]
         [Permission(MyPromoteLevel.None)]
         public void Pricelist()
@@ -23,10 +31,10 @@ namespace TorchPlugin
             {
                 EconCommunication.SendMessageTo(new EconCommandMessage { Command = "/pricelist " + Context.RawArgs }, Context.Player.SteamUserId);
             }
-            else
-            {
-                EconCommunication.SendMessageToServer(new EconCommandMessage { Command = "/pricelist " + Context.RawArgs });
-            }
+            //else
+            //{
+            //    EconCommunication.SendMessageToServer(new EconCommandMessage { Command = "/pricelist " + Context.RawArgs });
+            //}
         }
 
         [Command("set", "This is a Test Command.")]
